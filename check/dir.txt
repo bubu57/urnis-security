@@ -1,0 +1,3 @@
+/etc/sudoers
+/etc/shadow
+/etc/ssh/sshd_config
