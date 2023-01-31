@@ -1,0 +1,434 @@
+#!/bin/bash
+
+green=$(tput setaf 2)
+red=$(tput setaf 1)
+normal=$(tput sgr0)
+
+BLEU='\033[0;34m'
+GREEN='\033[0;32m'
+LGREY='\033[0;37m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+sender=$(sudo grep mailsender /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g')
+passw=$(sudo grep password /usr/share/urnis/src/urnis.conf | cut -c 10- | sed 's/"//g')
+reciver=$(sudo grep mailreciver /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g')
+tim=$(sudo grep timet /usr/share/urnis/src/urnis.conf | cut -c 7- | sed 's/"//g')
+up=$(sudo grep aptupdate /usr/share/urnis/src/urnis.conf | cut -c 11- | sed 's/"//g')
+pathfilemail="/usr/share/urnis/data/audit"
+totaltest=0
+war=0
+reco=0
+
+pathaudit="/usr/share/urnis/data/audit"
+pathlog="/usr/share/urnis/data/log"
+pathreco="/usr/share/urnis/src/recommandation.txt"
+cmdt="/usr/share/urnis/data/tmpwc"
+
+helper () {
+    echo -e "${LGREY}[ Urnis 1.0.0 ]${NC}\n\n"
+
+    echo -e "   ${BLEU}Description${NC}"
+    printf "       Urnis is a script that performs a security audit of your system.\n\n"
+
+    echo -e "   ${BLEU}Usage${NC}"
+    echo -e "       sudo urnis OPTION"
+
+    echo -e "\n\n   ${BLEU}Option${NC}"
+    printf "%-20s %-20s %s\n" "       OPTION" "NAME" "DESCRIPTION"
+    printf "%-20s %-20s %s\n" "       -a" "audit" "make audit of your system"
+    printf "%-20s %-20s %s\n" "       -h" "help" "usage of urnis"
+    printf "%-20s %-20s %s\n" "       -u" "update" "update of Urnis"
+    printf "%-20s %-20s %s\n" "       -l &" "look" "generation of an audit every 12 hours automatically"
+    printf "%-20s %-20s %s\n" "       -m" "audit mail" "make audit of your system and send it by email"
+    printf "%-20s %-20s %s\n" "       -r" "remove" "remove all files of urnis"
+    printf "%-20s %-20s %s\n" "       -k" "kill look" "kill look mode process"
+    printf "%-20s %-20s %s\n" "       -s" "status" "status of look mode"
+
+    echo -e "\n\n   ${BLEU}Configuration${NC}"
+    printf "%-41s %s\n" "       Configure mail" "/usr/share/urnis/src/urnis.conf"
+    printf "%-41s %-20s %s\n" "       Add programs to check" "/usr/share/urnis/src/pro.txt"
+    printf "%-41s %-20s %s\n" "       Add directories to check" "/usr/share/urnis/src/dir.txt"
+    printf "%-41s %-20s %s\n" "       Enable apt update in look mode" "/usr/share/urnis/src/urnis.conf"
+
+
+    echo -e "\n\n   ${BLEU}Author${NC}"
+    printf "%-20s %s\n" "       github" "https://github.com/bubudotsh/urnis-secutity"
+    printf "%-20s %s\n" "       developper" "BUNELIER Hugo"
+    echo -e "\n"
+}
+
+check () {
+    # check `name commande` `file type ou dir` `file or dir path`
+    # si cmd existe
+    if command -v $1 > /dev/null 2>/dev/null; then
+        # verification fichier ou dossier
+        if [ "$2" = "f" ]; then
+            # si fichier existe
+            if [ -f "$3" ]; then
+                # OK
+                local  myresult='ok'
+                echo "$myresult"
+            else
+                printf "%-45s %s\n" "   - $3" "${red}NOT FOUND${normal}" 2>&1 | tee -a ${pathlog}
+            fi
+        else
+            if [ -d "$2" ]; then
+                # OK
+                local  myresult='ok'
+                echo "$myresult"
+            else
+                printf "%-45s %s\n" "   - $3" "${red}NOT FOUND${normal}" 2>&1 | tee -a ${pathlog}
+            fi
+        fi
+    else
+        printf "%-45s %s\n" "   - $1" "${red}NOT FOUND${normal}" 2>&1 | tee -a ${pathlog}
+    fi
+}
+
+executei () {
+    # ececutec `cmd wc -l` `t1` `color1` `status1` `color2` `status2` `cmd`
+    cout=$(cat ${cmdt} | wc -l)
+    if [ 0 -lt $((${cout} + 0)) ]; then
+        if [ "$2" = "done" ]; then
+            printf "%-45s %s\n" "   - $1" "${green}DONE${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+        if [ "$2" = "war" ]; then
+            printf "%-45s %s\n" "   - $1" "${red}WARNING${normal}" 2>&1 | tee -a ${pathlog}
+            ((war = war + 1))
+        fi
+        if [ "$2" = "default" ]; then
+            printf "%-45s %s\n" "   - $1" "${red}DEFAULT${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+        if [ "$2" = "revdef" ]; then
+            printf "%-45s %s\n" "   - $1" "${green}CUSTOM${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+        echo -e "       - Result: ${cout}"
+        cat ${cmdt} >> ${pathlog}
+    else
+        if [ "$2" = "war" ]; then
+            printf "%-45s %s\n" "   - $1" "${green}OK${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+        if [ "$2" = "done" ]; then
+            printf "%-45s %s\n" "   - $1" "${green}NOT FOUND${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+        if [ "$2" = "default" ]; then
+            printf "%-45s %s\n" "   - $1" "${green}CUSTOM${normal}" 2>&1 | tee -a ${pathlog}
+        fi        
+        if [ "$2" = "revdef" ]; then
+            printf "%-45s %s\n" "   - $1" "${red}DEFAULT${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+        
+    fi
+    sudo rm -fr /usr/share/urnis/data/tmpwc
+    
+    if [ "$3" = "r" ]; then
+      echo "* $4" >> ${pathreco}
+      ((reco = reco + 1))
+    fi
+
+    ((totaltest = totaltest + 1))
+}
+
+maj () {
+    if [ "${up}" = "enable" ]; then
+        echo -e "\n\n${BLEU}[+] MAJ SYSTEM${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+        (sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt update -y && sudo apt upgrade -y) > /usr/share/urnis/data/log-maj
+        echo -e 'maj log aviable in /usr/share/urnis/data/log-maj \n' 2>&1 | tee -a ${pathlog}
+    fi
+}
+
+firewall () {
+    echo -e "\n\n${BLEU}[+] NETWORK${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+    ufwcm=$(sudo ufw status | awk '{ print $2'})
+    echo "   - Firewall" 2>&1 | tee -a ${pathlog}
+    if command -v ufw > /dev/null 2>&1; then
+        if [ "${ufwcm}" = "inactive" ] || [ "${ufwcm}" = "inactif" ]; then
+            printf "%-45s %s\n" "   - ufw status" "${red}INACTIVE${normal}" 2>&1 | tee -a ${pathlog}
+        else
+            printf "%-45s %s\n" "   - ufw status" "${green}ACTIF${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+    else
+        echo "      - ufw not found" 2>&1 | tee -a ${pathlog}
+    fi
+
+    if [ "$(check "ufw" "f" "/usr/sbin/urnis")" = "ok" ]; then
+        cmd=$(sudo netstat -tulpn > ${cmdt})
+        executei "open port" "war" 2>/dev/null
+    else
+        echo "$(check "netstat" "f" "/usr/sbin/urnis")"
+    fi
+
+    if [ "$(check "netstat" "f" "/usr/sbin/urnis")" = "ok" ]; then
+        cmd=$(sudo netstat -tulpn > ${cmdt})
+        executei "open port" "war" 2>/dev/null
+    else
+        echo "$(check "netstat" "f" "/usr/sbin/urnis")"
+    fi
+
+    if [ "$(check "ip route" "f" "/usr/sbin/urnis")" = "ok" ]; then
+        cmd=$(ip route | grep default | wc -l > ${cmdt})
+        executei "network bridge" "war" 2>/dev/null
+    else
+        echo "$(check "ip route" "f" "/usr/sbin/urnis")"
+    fi
+}
+
+scan () {
+    echo -e "\n\n${BLEU}[+] SCAN FILES${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+    echo -e "Scan directories file...\n" 2>&1 | tee -a ${pathlog}
+    total_file=0
+    suspect_file=0
+    hashfile="/usr/share/urnis/src/MD5Hahses.txt"
+    file_path="/usr/share/urnis/src/dir.txt"
+    while read -r line; do
+        if [ -d "$line" ]; then
+            printf "%-45s" "   - Checking $line" 2>&1 | tee -a ${pathlog}
+            if [ ! -f "$hashfile" ]; then
+                echo "Hash file list not found" 2>&1 | tee -a ${pathlog}
+                exit 1
+            fi
+            for file in "$line"/*; do
+                if [ -d "$file" ]; then
+                    echo -n
+                else
+                    file_hash=$(md5sum "$file" | cut -d' ' -f1)
+                    match=$(grep "$file_hash" "$hashfile")
+                    if [ -z "$match" ]; then
+                        ((total_file=total_file+1))
+                    else
+                        ((suspect_file=suspect_file+1))
+                    fi
+                fi
+            done
+            if [ "${suspect_file}" = 0 ]; then
+                echo -e "${GREEN}OK${NC}" 2>&1 | tee -a ${pathlog}
+            else
+                echo -e "${RED}FOUND${NC}" 2>&1 | tee -a ${pathlog}
+            fi
+        else
+            printf "%-45s %s\n" "   - Checking $line" "${red}NOT FOUND${normal}" 2>&1 | tee -a ${pathlog}
+            
+        fi
+    done < "$file_path"
+    ((total_file=total_file+suspect_file))
+    echo -e "suspect files:   $suspect_file" >> ${pathaudit}
+    echo -e "total files:     $total_file" >> ${pathaudit}
+}
+
+os_detections() {
+    echo -e "${BLEU}[+] OS detections${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+    printf "%-45s %s\n" "   System" "$(egrep '^(NAME)=' /etc/os-release | cut -c 7- | sed 's/"//g')" 2>&1 | tee -a ${pathlog}
+    printf "%-45s %s\n" "   Version" "$(egrep '^(VERSION)=' /etc/os-release | cut -c 9- | sed 's/"//g')" 2>&1 | tee -a ${pathlog}
+    printf "%-45s %s\n" "   Kernel" "$(uname -r)" 2>&1 | tee -a ${pathlog}
+    printf "%-45s %s\n" "   IP" "$(hostname -I)" 2>&1 | tee -a ${pathlog}
+    printf "%-45s %s\n" "   Name" "$(hostname)" 2>&1 | tee -a ${pathlog}
+
+    echo -e "System           $(egrep '^(NAME)=' /etc/os-release | cut -c 7- | sed 's/"//g')" >> ${pathaudit}
+    echo -e "Version          $(egrep '^(VERSION)=' /etc/os-release | cut -c 9- | sed 's/"//g')" >> ${pathaudit}
+    echo -e "Kernel           $(uname -r)" >> ${pathaudit}
+    echo -e "IP               $(hostname -I)" >> ${pathaudit}
+    echo -e "Name             $(hostname)" >> ${pathaudit}
+}
+
+prog () {
+    echo -e "\n\n${BLEU}[+] RECOMANDED PROGRAMS${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+    file_path="/usr/share/urnis/src/pro.txt"
+    while read -r line; do
+        if command -v $line > /dev/null 2>&1; then
+            printf "%-45s %s\n" "   - $line" "${green}FOUND${normal}" 2>&1 | tee -a ${pathlog}
+        else
+            printf "%-45s %s\n" "   - $line" "${red}NOT FOUND${normal}" 2>&1 | tee -a ${pathlog}
+        fi
+    done < "$file_path"
+}
+
+info () {
+    echo "==================================================================================="
+    echo -e "Urniscomes with ABSOLUTELY NO WARRANTY. This is free software,
+and you are welcome to redistribute it under the terms of the GNU General
+Public License.\n"
+    printf "%-10s %s\n" "Creator:" "BUNELIER Hugo"
+    printf "%-10s %s\n" "GitHub:" "https://github.com/bubudotsh/urnis-security"
+    printf "%-10s %s\n" "Update:" "please check the update on the project's git hub for new functionality"
+    echo -e "===================================================================================\n\n"
+}
+
+bootinfo () {
+    echo -e "\n\n${BLEU}[+] BOOT INFO ${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+
+        cmd=$(mokutil --sb-state | grep "disable" > ${cmdt})
+        executei "Secure boot" "war" 2>/dev/null
+}
+
+reco () {
+    echo -e "\n\n${BLEU}[+] RECOMMANDATION${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+    sudo cat /usr/share/urnis/src/recommandation.txt 2>&1 | tee -a ${pathlog}
+}
+
+admin () {
+    echo -e "\n\n${BLEU}[+] USERS AND SERVICES${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+
+    cmd=$(sudo getent shadow | grep ':!:' | cut -d: -f1 > ${cmdt})
+    executei "User empty password" "war" "r" "add password to user" 2>/dev/null
+
+    cmd=$(sudo service --status-all | awk '{print $4}' | wc -l > ${cmdt})
+    executei "Admin services" "done" 2>/dev/null
+
+    cmd=$(sudo cat /etc/sudoers | grep '^%admin' > ${cmdt})
+    executei "User admin right" "done" 2>/dev/null
+
+    cmd=$(sudo awk -F: '($3 < 1000) {print}' /etc/shadow > ${cmdt})
+    executei "passwords expiration" "war" 2>/dev/null
+
+    cmd=$(sudo cat /etc/shadow | grep ":!" | awk -F ":" '{print $1}' > ${cmdt})
+    executei "inactive user" "war" 2>/dev/null
+}
+
+
+software () {
+    echo -e "\n\n${BLEU}[+] SOFTWARE${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+
+    cmd=$(apt-get dist-upgrade --dry-run | grep "^Inst" | awk '{print $2}' > ${cmdt})
+    executei "outdated software" "war" "update software" 2>/dev/null
+
+    cmd=$(sudo find / -type f -perm -4000 -exec ls -ld {} \; > /dev/null 2> /dev/null > ${cmdt})
+    executei "file with elevated permissions" "war" 2>/dev/null
+
+    cmd=$(sudo find / -type d -perm -4000 -exec ls -ld {} \; > /dev/null 2> /dev/null > ${cmdt})
+    executei "directory with elevated permissions" "war" 2>/dev/null
+
+    cmd=$(systemctl list-units --all --type=service | grep "inactive" > ${cmdt})
+    executei "inactive services" "war" 2>/dev/null
+
+}
+
+sshcheck () {
+    echo -e "\n\n${BLEU}[+] SSH CONFIG${NC}\n-----------------------------------\n" 2>&1 | tee -a ${pathlog}
+
+    if [ "$(check "grep" "f" "/etc/ssh/sshd_config")" = "ok" ]; then
+        cmd=$(grep -iE 'port' /etc/ssh/sshd_config | grep 22 | wc -l | grep 0 > ${cmdt})
+        executei "sshport" "revdef" 2>/dev/null
+    else
+        echo "$(check "grep" "f" "/etc/ssh/sshd_config")"
+    fi
+       
+}
+
+
+core () {
+    if [ -f "/etc/ssh/sshd_config" ]; then
+        sed -i -e 's/#admin/admin/g'
+    fi
+}
+
+audit () {
+    echo "" > /usr/share/urnis/src/recommandation.txt
+    echo "" > /usr/share/urnis/data/log
+    echo -e "${LGREY}[ Urnis 2.0.0 ]${NC}\n\n"
+    echo -e "[ Urnis 2.0.0 ]\n\n" > ${pathaudit}
+    info 2>&1 | tee -a ${pathlog}
+    os_detections
+    admin
+    bootinfo  
+    prog
+    software
+    sshcheck
+    firewall
+    scan
+    reco
+    echo -e "\n\n${BLEU}[+] RESULT${NC}\n-----------------------------------\n"
+    echo "Total test    :   $totaltest"
+    echo "Warnings      :   $war"
+    echo "recommandation:   $reco"
+    echo -e "------------------------------------"
+    echo "Files scanned :   $total_file"
+    echo "Suspect files :   $suspect_file"
+    echo -e "------------------------------------"
+    echo "maj log       :   /usr/share/urnis/data/log-maj"
+    echo "scan log      :   ${pathlog}"
+    echo "scan result   :   ${pathaudit}"
+    echo -e "------------------------------------"
+    echo "date of scan  :   $(date)"
+}
+
+look () {
+    maj
+    timm=$(($tim * 3600))
+    while true; do
+        sudo sed -i -e 's/urnislstatus="0"/urnislstatus="1"/g' /usr/share/urnis/src/urnis.conf
+        audit > ${pathlog}
+        sudo python3 /usr/share/urnis/src/mailsender.py ${sender} ${passw} ${reciver} ${pathfilemail}
+        sleep $timm
+    done
+}
+
+remove () {
+    echo "Are you sure you want to remove [y/n]"
+    read remove_rep
+    if [ "$remove_rep" = "y" ]; then
+        sudo rm -fr /usr/share/urnis
+        echo -e "remove sucessfully" 
+        sudo rm -fr /usr/sbin/urnis
+    fi
+}
+
+kills () {
+    sudo ps -a | grep 'urnis' | awk '{print $1}' > /usr/share/urnis/data/kill.txt
+    file_path="/usr/share/urnis/data/kill.txt"
+    sudo sed -i -e 's/urnislstatus="1"/urnislstatus="0"/g' /usr/share/urnis/src/urnis.conf
+    while read -r line; do
+        sudo kill -9 $line
+    done < "$file_path"
+}
+
+update () {
+    echo "For update you can execute sudo urnis -r"
+    echo "git clone https://github.com/bubudotsh/urnis-security.git"
+    echo "run setup.sh and reconfigure urnis"
+}
+
+status () {
+    lookstatus=$(grep urnislstatus /usr/share/urnis/src/urnis.conf | cut -c 14- | sed 's/"//g')
+    if [ "${lookstatus}" = "0" ]; then
+        printf "%-40s %s\n" "URNIS LOOK STATUS" "NOT RUN"
+    elif [ "${lookstatus}" = "1" ];then
+        printf "%-40s %s\n" "URNIS LOOK STATUS" "RUNNING"
+    else
+        printf "%-40s %s\n" "URNIS LOOK STATUS" "error"
+    fi
+}
+
+while getopts "huamlrks" option; do
+case $option in
+    h)
+        helper
+        exit;;
+    u)
+        update
+        exit;;
+    a)
+        audit
+        exit;;
+    m)
+        audit
+        sudo python3 /usr/share/urnis/src/mailsender.py ${sender} ${passw} ${reciver} ${pathfilemail}
+        exit;;
+    l)
+        look > /dev/null 2> /dev/null
+        exit;;
+    k)
+        kills
+        exit;;
+    r)
+        remove
+        exit;;
+    s)
+        status
+        exit;;
+    \?)
+        echo "bad option, help : -h"
+        exit;;
+    esac
+done
+echo "bad option, try sudo urnis -h"
