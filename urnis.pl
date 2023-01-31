@@ -10,6 +10,38 @@ my $warning_number = 0;
 my $scanf = 0;
 my $suspect_files = 0;
 
+sub helper {
+    printf "[ Urnis 1.0.0 ]\n\n";
+
+    printf ("   $bleu Description $normal\n");
+    printf ("       Urnis is a script that performs a security audit of your system.\n\n");
+
+    printf ("   $bleu Usage $normal\n");
+    printf ("       sudo urnis OPTION");
+
+    printf ("\n\n   $bleu Option $normal\n");
+    printf ("%-20s %-20s %s\n", "       OPTION", "NAME", "DESCRIPTION");
+    printf ("%-20s %-20s %s\n", "       -a", "audit", "make audit of your system");
+    printf ("%-20s %-20s %s\n", "       -h", "help", "usage of urnis");
+    printf ("%-20s %-20s %s\n", "       -u", "update", "update of Urnis");
+    printf ("%-20s %-20s %s\n", "       -l &", "look", "generation of an audit every 12 hours automatically");
+    printf ("%-20s %-20s %s\n", "       -m", "audit mail", "make audit of your system and send it by email");
+    printf ("%-20s %-20s %s\n", "       -r", "remove", "remove all files of urnis");
+    printf ("%-20s %-20s %s\n", "       -k", "kill look", "kill look mode process");
+    printf ("%-20s %-20s %s\n", "       -s", "status", "status of look mode");
+
+    printf ("\n\n   $bleu Configuration $normal\n");
+    printf ("%-41s %s\n", "       Configure mail", "/usr/share/urnis/src/urnis.conf");
+    printf ("%-41s %-20s %s\n", "       Add programs to check", "/usr/share/urnis/src/pro.txt");
+    printf ("%-41s %-20s %s\n", "       Add directories to check", "/usr/share/urnis/src/dir.txt");
+    printf ("%-41s %-20s %s\n", "       Enable apt update in look mode", "/usr/share/urnis/src/urnis.conf");
+
+
+    printf ("\n\n   $bleu Author $normal\n");
+    printf ("%-20s %s\n", "       github", "https://github.com/bubudotsh/urnis-secutity");
+    printf ("%-20s %s\n", "       developper", "BUNELIER Hugo");
+    print "\n";
+}
 
 sub affiche {
     my (@var) = @_;
@@ -67,8 +99,11 @@ sub software {
 sub ssh {
     printf("\n$bleu Checking ssh $normal\n -----------------\n");
 
-    execut("ssh port",
+    execut("port",
     $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE 'port' /etc/ssh/sshd_config | grep 22 ; else echo "1" ; fi`);
+
+    execut("root login",
+    $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE '^PermitRootLogin' /etc/ssh/sshd_config | wc -l | grep "0" ; else echo "1" ; fi`);
 }
 
 sub boot_info {
@@ -145,7 +180,50 @@ sub recomanded_programs {
 
 sub scan {
     printf("\n$bleu check malware by MD5 $normal\n -----------------\n");
-    system("/usr/share/urnis/src/scan.sh");
+    my $total_file = 0;
+    my $suspect_file = 0;
+    my $hashfile = "/usr/share/urnis/src/MD5Hahses.txt";
+    my $file_path = "/usr/share/urnis/src/dir.txt";
+    open(FILE, "<", $file_path) or die "Cannot open file: $!";
+
+    while (my $line = <FILE>) {
+        chomp $line;
+        if (-d $line) {
+            printf "%-47s", " - Checking $line";
+            if (! -f $hashfile) {
+                print "Hash file list not found\n";
+                exit 1;
+            }
+            my @files = glob "$line/*";
+            foreach my $file (@files) {
+                if (-d $file) {
+                next;
+                }
+                my $file_hash = `md5sum $file | cut -d' ' -f1`;
+                chomp $file_hash;
+                my $match = `grep $file_hash $hashfile`;
+                if ($match eq '') {
+                    $total_file++;
+                }
+                else {
+                    $suspect_file++;
+                }
+            }
+            if ($suspect_file == 0) {
+                printf "$green OK $normal\n";
+            }
+            else {
+                print "$red FOUND $normal\n";
+            }
+        }
+        else {
+            printf "%-45s %s\n", " - Checking $line", "NOT FOUND";
+        }
+    }
+
+    $total_file += $suspect_file;
+
+    close(FILE);
 }
 
 sub audit {
@@ -163,5 +241,9 @@ sub audit {
 foreach my $arg (@ARGV) {
     if ($arg = "a") {
         audit();
+    } elsif ($arg = "h") {
+        helper();
+    } else {
+        print "bad option";
     }
 }
