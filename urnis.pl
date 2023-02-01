@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+
+
+########################################################################
+#   VARIABLES 
+########################################################################
+
 $green=`tput setaf 2`;
 $red=`tput setaf 1`;
 $normal=`tput sgr0`;
@@ -9,6 +15,18 @@ my $test_number = 0;
 my $warning_number = 0;
 my $scanf = 0;
 my $suspect_files = 0;
+my $reconb = 0;
+my $total_file = 0;
+my $suspect_file = 0;
+
+
+
+
+
+
+########################################################################
+#   HELP 
+########################################################################
 
 sub helper {
     printf "[ Urnis 1.0.0 ]\n\n";
@@ -43,15 +61,25 @@ sub helper {
     print "\n";
 }
 
+
+
 sub affiche {
     my (@var) = @_;
     my $filename = "$var[0]";
     open (my $fh, '<', $filename);
     while (my $line = <$fh>) {
-        print $line;
+        print "   $line";
     }
     close $fh;
 }
+
+
+
+
+
+########################################################################
+#   EXECUTE TEST FUNCTIONS
+########################################################################
 
 sub count_lines {
    my ($string) = @_;
@@ -73,6 +101,14 @@ sub execut {
     $test_number++;
 }
 
+
+
+
+
+########################################################################
+#   USERS TEST
+########################################################################
+
 sub users {
     printf("\n$bleu Checking user $normal\n -----------------\n");
 
@@ -86,6 +122,17 @@ sub users {
     $cmd = `if [ -f /etc/shadow ] ; then sudo cat /etc/shadow | grep ":!" | awk -F ":" '{print $1}' ; else echo "1" ; fi`);
 }
 
+
+
+
+
+
+
+
+########################################################################
+#   SOFTWARE TEST FUNCTION 
+########################################################################
+
 sub software {
     printf("\n$bleu Checking software $normal\n -----------------\n");
 
@@ -95,6 +142,16 @@ sub software {
     execut("inactive services",
     $cmd = `systemctl list-units --all --type=service | grep "inactive"`);
 }
+
+
+
+
+
+
+
+########################################################################
+#   SSH TEST FUNCTION 
+########################################################################
 
 sub ssh {
     printf("\n$bleu Checking ssh $normal\n -----------------\n");
@@ -106,12 +163,28 @@ sub ssh {
     $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE '^PermitRootLogin' /etc/ssh/sshd_config | wc -l | grep "0" ; else echo "1" ; fi`);
 }
 
+
+
+
+########################################################################
+#   BOOT TEST FUNCTION 
+########################################################################
+
 sub boot_info {
     printf("\n$bleu Checking boot $normal\n -----------------\n");
 
     execut("Secure boot",
     $cmd = `mokutil --sb-state | grep "disable"`);
 }
+
+
+
+
+
+
+########################################################################
+#   CHECK URNIS FILE TEST FUNCTION 
+########################################################################
 
 sub check {
     my $count = 0;
@@ -150,6 +223,15 @@ sub check {
     }
 }
 
+
+    scan();
+
+
+
+########################################################################
+#   OS DETECTION
+########################################################################
+
 sub os_detection {
     printf("\n$bleu OS detection $normal\n -----------------\n");
     $cmd = `egrep '^(NAME)=' /etc/os-release | cut -c 7- | sed 's/"//g'`;
@@ -163,6 +245,16 @@ sub os_detection {
     $cmd = `hostname`;
     printf("%-45s %s", "   - Name", " $cmd");
 }
+
+
+
+
+
+
+
+########################################################################
+#   RECOMMANDED PROGRAMES
+########################################################################
 
 sub recomanded_programs {
     printf("\n$bleu Recomanded programs $normal\n -----------------\n");
@@ -178,10 +270,19 @@ sub recomanded_programs {
     }
 }
 
+
+
+
+
+
+
+
+########################################################################
+#   VIRUS SCAN MD5 TEST FUNCTION 
+########################################################################
+
 sub scan {
     printf("\n$bleu check malware by MD5 $normal\n -----------------\n");
-    my $total_file = 0;
-    my $suspect_file = 0;
     my $hashfile = "/usr/share/urnis/src/MD5Hahses.txt";
     my $file_path = "/usr/share/urnis/src/dir.txt";
     open(FILE, "<", $file_path) or die "Cannot open file: $!";
@@ -189,7 +290,7 @@ sub scan {
     while (my $line = <FILE>) {
         chomp $line;
         if (-d $line) {
-            printf "%-47s", " - Checking $line";
+            printf "%-45s", "   - Checking $line";
             if (! -f $hashfile) {
                 print "Hash file list not found\n";
                 exit 1;
@@ -210,14 +311,14 @@ sub scan {
                 }
             }
             if ($suspect_file == 0) {
-                printf "$green OK $normal\n";
+                printf "$green  OK $normal\n";
             }
             else {
-                print "$red FOUND $normal\n";
+                print "$red  FOUND $normal\n";
             }
         }
         else {
-            printf "%-45s %s\n", " - Checking $line", "NOT FOUND";
+            printf "%-45s %s\n", "  - Checking $line", "NOT FOUND";
         }
     }
 
@@ -225,6 +326,46 @@ sub scan {
 
     close(FILE);
 }
+
+
+
+
+
+
+
+########################################################################
+#   RAPPORT AUDIT 
+########################################################################
+
+sub rapport {
+    printf("\n$bleu Scan result $normal\n -----------------\n");
+    my $date = `date`;
+
+    open (FICHIER, ">/usr/share/urnis/data/audit") || die ("Vous");
+    printf FICHIER ("Total test    :   $test_number\n");
+    printf FICHIER ("Warnings      :   $warning_number\n");
+    printf FICHIER ("recommandation:   $reconb\n");
+    printf FICHIER ("------------------------------------\n");
+    printf FICHIER ("Files scanned :   $total_file\n");
+    printf FICHIER ("Suspect files :   $suspect_file\n");
+    printf FICHIER ("------------------------------------\n");
+    printf FICHIER ("maj log       :   /usr/share/urnis/data/log-maj\n");
+    printf FICHIER ("scan log      :   /usr/share/urnis/data/log\n");
+    printf FICHIER ("------------------------------------\n");
+    printf FICHIER ("date of scan  :   $date\n"); 
+    close (FICHIER);
+
+    affiche("/usr/share/urnis/data/audit");
+}
+
+
+
+
+
+
+########################################################################
+#   MAIN FUNCTION 
+########################################################################
 
 sub audit {
     $cmd = `echo "" > /usr/share/urnis/data/log`;
@@ -236,6 +377,7 @@ sub audit {
     ssh();
     boot_info();
     scan();
+    rapport();
 }
 
 foreach my $arg (@ARGV) {
