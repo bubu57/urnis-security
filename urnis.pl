@@ -19,7 +19,13 @@ my $reconb = 0;
 my $total_file = 0;
 my $suspect_file = 0;
 
+my $sender=`sudo grep 'mailsender' /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g'`;
+my $passw=`sudo grep 'password' /usr/share/urnis/src/urnis.conf | cut -c 10- | sed 's/"//g'`;
+my $reciver=`sudo grep 'mailreciver' /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g'`;
 
+my $updates=`sudo grep 'aptupdate' /usr/share/urnis/src/urnis.conf | cut -c 12- | sed 's/"//g'`;
+
+use Getopt::Std;
 
 
 
@@ -126,6 +132,23 @@ sub users {
 
 
 
+########################################################################
+#   Update
+########################################################################
+
+sub update {
+    printf("\n$bleu Updates $normal\n -----------------\n");
+
+    if ("$updates" == "enable") {
+        printf("%-45s %s\n", "   - system update", "$green ENABLE $normal");
+        # $cmd = `sudo apt update -Y ; sudo apt upgrade -Y ; sudo apt-get update -Y ; sudo apt-get update -Y`;
+    } else {
+        printf("%-45s %s\n", "   - system update", "$red DISABLE $normal");
+    }
+}
+
+
+
 
 
 
@@ -146,6 +169,26 @@ sub software {
 
 
 
+########################################################################
+#   FIREWALL TEST FUNCTION 
+########################################################################
+
+sub firewall {
+    printf("\n$bleu Checking firewall $normal\n -----------------\n");
+
+    execut("iptables input",
+    $cmd = `sudo iptables -L | grep "INPUT (policy ACCEPT)" | wc -l`);
+
+    execut("iptables output",
+    $cmd = `sudo iptables -L | grep "OUTPUT (policy ACCEPT)" | wc -l`);
+
+    execut("iptables forward",
+    $cmd = `sudo iptables -L | grep "FORWARD (policy ACCEPT)" | wc -l`);
+
+    execut("ufw status",
+    $cmd = `sudo ufw status | grep inactive | wc -l`);
+}
+
 
 
 
@@ -160,10 +203,14 @@ sub ssh {
     $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE 'port' /etc/ssh/sshd_config | grep 22 ; else echo "1" ; fi`);
 
     execut("root login",
-    $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE '^PermitRootLogin' /etc/ssh/sshd_config | wc -l | grep "0" ; else echo "1" ; fi`);
+    $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE '^PermitRootLogin no' /etc/ssh/sshd_config | wc -l | grep "0" ; else echo "1" ; fi`);
+
+    execut("empty pass login",
+    $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE '^PermitEmptyPasswords no' /etc/ssh/sshd_config | wc -l | grep "0" ; else echo "1" ; fi`);
+
+    execut("password authentication",
+    $cmd = `if [ -f /etc/ssh/sshd_config ] ; then grep -iE '^PasswordAuthentication no' /etc/ssh/sshd_config | wc -l | grep "0" ; else echo "1" ; fi`);
 }
-
-
 
 
 ########################################################################
@@ -175,7 +222,32 @@ sub boot_info {
 
     execut("Secure boot",
     $cmd = `mokutil --sb-state | grep "disable"`);
+
+    execut("uefi boot",
+    $cmd = `if [ -d /sys/firmware/efi/efivars ]; then echo "1"; else echo "0"; fi | grep 0`);
 }
+
+
+
+
+
+
+
+
+########################################################################
+#   NETWORK TEST FUNCTION 
+########################################################################
+
+sub network {
+    printf("\n$bleu Checking network $normal\n -----------------\n");
+
+    execut("Network bridge",
+    $cmd = `ip route | grep "default" | wc -l`);
+
+    execut("open port",
+    $cmd = `netstat -tulpn 2>/dev/null | wc -l`);
+}
+
 
 
 
@@ -224,7 +296,6 @@ sub check {
 }
 
 
-    scan();
 
 
 
@@ -245,8 +316,6 @@ sub os_detection {
     $cmd = `hostname`;
     printf("%-45s %s", "   - Name", " $cmd");
 }
-
-
 
 
 
@@ -341,13 +410,17 @@ sub rapport {
     printf("\n$bleu Scan result $normal\n -----------------\n");
     my $date = `date`;
 
+    my $stats = sprintf("%.0f", ($warning_number / $test_number) * 100);
+    my $stats1 = sprintf("%.0f", ($suspect_file / $total_file) * 100);
+
     open (FICHIER, ">/usr/share/urnis/data/audit") || die ("Vous");
     printf FICHIER ("Total test    :   $test_number\n");
     printf FICHIER ("Warnings      :   $warning_number\n");
-    printf FICHIER ("recommandation:   $reconb\n");
+    printf FICHIER ("stats         :   $stats %\n");
     printf FICHIER ("------------------------------------\n");
     printf FICHIER ("Files scanned :   $total_file\n");
     printf FICHIER ("Suspect files :   $suspect_file\n");
+    printf FICHIER ("stats         :   $stats1 %\n");
     printf FICHIER ("------------------------------------\n");
     printf FICHIER ("maj log       :   /usr/share/urnis/data/log-maj\n");
     printf FICHIER ("scan log      :   /usr/share/urnis/data/log\n");
@@ -370,9 +443,12 @@ sub rapport {
 sub audit {
     $cmd = `echo "" > /usr/share/urnis/data/log`;
     check();
+    # update();
     os_detection();
     recomanded_programs();
     users();
+    network();
+    firewall();
     software();
     ssh();
     boot_info();
@@ -380,12 +456,23 @@ sub audit {
     rapport();
 }
 
-foreach my $arg (@ARGV) {
-    if ($arg = "a") {
-        audit();
-    } elsif ($arg = "h") {
-        helper();
-    } else {
-        print "bad option";
-    }
+
+
+my %options;
+getopts('ahm', \%options);
+
+if (exists $options{h}) {
+    helper();
+    exit;
+}
+
+if (exists $options{a}) {
+    audit();
+    exit;
+}
+
+if (exists $options{m}) {
+    audit();
+    $cmd = `senderr=$sender ; passwr=$passw ; reciverr=$reciver ; sudo python3 /usr/share/urnis/src/mailsender.py $senderr $passwr $reciverr`;
+    exit;
 }

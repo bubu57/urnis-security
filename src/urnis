@@ -159,12 +159,32 @@ firewall () {
         echo "$(check "netstat" "f" "/usr/sbin/urnis")"
     fi
 
+    # cmd=$(sudo netstat -tulpn | wc -l)
+    # cmdc=$(sudo netstat -tulpn)
+    # res=$(check "netstat" "f" "/usr/sbin/urnis")
+    # if [ "${res}" = "ok" ]; then
+    #     executei "${cmd}" "open port" "done" "${cmdc}" 2>/dev/null
+    # else
+    #     echo "${res}"
+    # fi
+
     if [ "$(check "netstat" "f" "/usr/sbin/urnis")" = "ok" ]; then
         cmd=$(sudo netstat -tulpn > ${cmdt})
         executei "open port" "war" 2>/dev/null
     else
         echo "$(check "netstat" "f" "/usr/sbin/urnis")"
     fi
+
+    # if command -v ip route > /dev/null 2>&1; then
+    #     iproute=$(ip route | grep default | wc -l)
+    #     if [ 0 -lt $((${openpor} + 0)) ]; then
+    #         printf "%-45s %s\n" "   - network bridge" "${red}DEFAULT${normal}" 2>&1 | tee -a ${pathlog}
+    #     else
+    #         printf "%-45s %s\n" "   - network bridge" "${green}CUSTOM${normal}" 2>&1 | tee -a ${pathlog}
+    #     fi
+    # else
+    #     echo "  - ip route not found" 2>&1 | tee -a ${pathlog}
+    # fi
 
     if [ "$(check "ip route" "f" "/usr/sbin/urnis")" = "ok" ]; then
         cmd=$(ip route | grep default | wc -l > ${cmdt})
@@ -322,34 +342,37 @@ core () {
     fi
 }
 
+
+
+
 audit () {
-    echo "" > /usr/share/urnis/src/recommandation.txt
-    echo "" > /usr/share/urnis/data/log
-    echo -e "${LGREY}[ Urnis 2.0.0 ]${NC}\n\n"
-    echo -e "[ Urnis 2.0.0 ]\n\n" > ${pathaudit}
-    info 2>&1 | tee -a ${pathlog}
-    os_detections
-    admin
-    bootinfo  
-    prog
-    software
-    sshcheck
-    firewall
+    # echo "" > /usr/share/urnis/src/recommandation.txt
+    # echo "" > /usr/share/urnis/data/log
+    # echo -e "${LGREY}[ Urnis 2.0.0 ]${NC}\n\n"
+    # echo -e "[ Urnis 2.0.0 ]\n\n" > ${pathaudit}
+    # info 2>&1 | tee -a ${pathlog}
+    # # os_detections
+    # admin
+    # bootinfo  
+    # prog
+    # software
+    # sshcheck
+    # firewall
     scan
-    reco
-    echo -e "\n\n${BLEU}[+] RESULT${NC}\n-----------------------------------\n"
-    echo "Total test    :   $totaltest"
-    echo "Warnings      :   $war"
-    echo "recommandation:   $reco"
-    echo -e "------------------------------------"
-    echo "Files scanned :   $total_file"
-    echo "Suspect files :   $suspect_file"
-    echo -e "------------------------------------"
-    echo "maj log       :   /usr/share/urnis/data/log-maj"
-    echo "scan log      :   ${pathlog}"
-    echo "scan result   :   ${pathaudit}"
-    echo -e "------------------------------------"
-    echo "date of scan  :   $(date)"
+    # reco
+    # echo -e "\n\n${BLEU}[+] RESULT${NC}\n-----------------------------------\n"
+    # echo "Total test    :   $totaltest"
+    # echo "Warnings      :   $war"
+    # echo "recommandation:   $reco"
+    # echo -e "------------------------------------"
+    # echo "Files scanned :   $total_file"
+    # echo "Suspect files :   $suspect_file"
+    # echo -e "------------------------------------"
+    # echo "maj log       :   /usr/share/urnis/data/log-maj"
+    # echo "scan log      :   ${pathlog}"
+    # echo "scan result   :   ${pathaudit}"
+    # echo -e "------------------------------------"
+    # echo "date of scan  :   $(date)"
 }
 
 look () {

@@ -1,0 +1,11 @@
+open (SERVICE, "service --status-all |");
+while ($service = <SERVICE>) {
+    if ($service =~ /^ \[\s+\] (.*)/) {
+        print "$1 est un service inactif\n";
+    }
+}
+close (SERVICE);
+
+
+
+

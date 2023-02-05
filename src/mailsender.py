@@ -10,16 +10,17 @@ from email.mime.base import MIMEBase
 from email import encoders
 import mimetypes
 from email.message import EmailMessage
+import subprocess
 
-sender = sys.argv[1]
-passw = sys.argv[2]
-reciver = sys.argv[3]
-path = sys.argv[4]
+sender = "{}".format(sys.argv[1])
+passw = "{}".format(sys.argv[2])
+reciver = "{}".format(sys.argv[3])
+
 
 def mail () :
 
     #send mail
-    fi = open(path, 'r')
+    fi = open("/usr/share/urnis/data/audit", 'r')
     s = fi.read()
 
     #send mail
