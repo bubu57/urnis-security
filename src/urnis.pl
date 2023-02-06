@@ -22,8 +22,10 @@ my $suspect_file = 0;
 my $sender=`sudo grep 'mailsender' /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g'`;
 my $passw=`sudo grep 'password' /usr/share/urnis/src/urnis.conf | cut -c 10- | sed 's/"//g'`;
 my $reciver=`sudo grep 'mailreciver' /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g'`;
-
 my $updates=`sudo grep 'aptupdate' /usr/share/urnis/src/urnis.conf | cut -c 12- | sed 's/"//g'`;
+my $backups=`sudo grep 'backups' /usr/share/urnis/src/urnis.conf | cut -c 14- | sed 's/"//g'`;
+my $backupspath=`sudo grep 'backupspath' /usr/share/urnis/src/urnis.conf | cut -c 18- | sed 's/"//g'`;
+my $times=`sudo grep 'timet' /usr/share/urnis/src/urnis.conf | cut -c 7- | sed 's/"//g'`;
 
 use Getopt::Std;
 
@@ -136,12 +138,11 @@ sub users {
 #   Update
 ########################################################################
 
-sub update {
+sub updates {
     printf("\n$bleu Updates $normal\n -----------------\n");
-
-    if ("$updates" == "enable") {
+    if ($updates == "1") {
         printf("%-45s %s\n", "   - system update", "$green ENABLE $normal");
-        # $cmd = `sudo apt update -Y ; sudo apt upgrade -Y ; sudo apt-get update -Y ; sudo apt-get update -Y`;
+        $cmd = `(sudo apt update -y ; sudo apt upgrade -y ; sudo apt-get update -y ; sudo apt-get update -y) 2>&1 /dev/null`;
     } else {
         printf("%-45s %s\n", "   - system update", "$red DISABLE $normal");
     }
@@ -213,6 +214,12 @@ sub ssh {
 }
 
 
+
+
+
+
+
+
 ########################################################################
 #   BOOT TEST FUNCTION 
 ########################################################################
@@ -270,7 +277,7 @@ sub check {
 '/etc/ssh/sshd_config',
 '/etc/os-release');
 
-    printf("$bleu Checking files $normal\n -----------------\n");
+    printf("\n$bleu Checking files $normal\n -----------------\n");
     foreach my $files (@urnis_check_files) {
         if (-e "$files") {
             $count++;
@@ -288,6 +295,7 @@ sub check {
             $count++;
         }
     }
+
     if ($count < 4) {
         printf("%-45s %s\n", "   - urnis check require file", "$red WARNING $normal");
     } else {
@@ -402,6 +410,48 @@ sub scan {
 
 
 
+
+########################################################################
+#   BACKUP FUNCTION 
+########################################################################
+
+sub backups {
+    printf("\n$bleu Backup $normal\n -----------------\n");
+
+    if ($backups == "2") {
+        printf("%-45s %s\n", "   - system update", "$green ENABLE $normal");
+
+
+        my $file_path = "/usr/share/urnis/src/backup_list";
+        open(FILE, "<", $file_path) or die "Cannot open file: $!";
+
+        while (my $liness = <FILE>) {
+            chomp $liness;
+            if (-d $liness) {
+                $list_back = "$list_back $liness";
+            }
+            else {
+                printf "%-45s %s\n", "  - Checking $line", "NOT FOUND";
+            }
+        }
+
+        close(FILE);
+
+        $cmd = `$list_back`;
+
+    } else {
+        printf("%-45s %s\n", "   - system update", "$red DISABLE $normal");
+    }
+
+    print($list_back);
+}
+
+
+
+
+
+
+
 ########################################################################
 #   RAPPORT AUDIT 
 ########################################################################
@@ -442,8 +492,9 @@ sub rapport {
 
 sub audit {
     $cmd = `echo "" > /usr/share/urnis/data/log`;
+    backups();
     check();
-    # update();
+    updates();
     os_detection();
     recomanded_programs();
     users();
@@ -459,7 +510,7 @@ sub audit {
 
 
 my %options;
-getopts('ahm', \%options);
+getopts('ahml', \%options);
 
 if (exists $options{h}) {
     helper();
@@ -473,6 +524,13 @@ if (exists $options{a}) {
 
 if (exists $options{m}) {
     audit();
-    $cmd = `senderr=$sender ; passwr=$passw ; reciverr=$reciver ; sudo python3 /usr/share/urnis/src/mailsender.py $senderr $passwr $reciverr`;
+    $cmd = `sudo bash /usr/share/urnis/src/send.sh`;
+    exit;
+}
+
+if (exists $options{l}) {
+    audit();
+    $cmd = `sudo bash /usr/share/urnis/src/send.sh`;
+    sleep($times * 60 * 60);
     exit;
 }

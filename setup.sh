@@ -27,7 +27,7 @@ else
 fi
 
 if [ -d ${pathf} ]; then
-    sudo cp -fr src/urnis /usr/sbin/
+    sudo cp -fr src/urnis.pl /usr/sbin/urnis
     sudo chmod +x /usr/sbin/urnis
 else
     echo -e "${pathf} not found"

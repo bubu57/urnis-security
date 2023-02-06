@@ -12,9 +12,9 @@ import mimetypes
 from email.message import EmailMessage
 import subprocess
 
-sender = "{}".format(sys.argv[1])
-passw = "{}".format(sys.argv[2])
-reciver = "{}".format(sys.argv[3])
+sender = sys.argv[1]
+passw = sys.argv[2]
+reciver = sys.argv[3]
 
 
 def mail () :
