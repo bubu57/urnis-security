@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
 
-
 ########################################################################
 #   VARIABLES 
 ########################################################################
@@ -18,6 +17,9 @@ my $suspect_files = 0;
 my $reconb = 0;
 my $total_file = 0;
 my $suspect_file = 0;
+
+my $chrootkit = 0;
+my $chrootkitw = 0;
 
 my $sender=`sudo grep 'mailsender' /usr/share/urnis/src/urnis.conf | cut -c 13- | sed 's/"//g'`;
 my $passw=`sudo grep 'password' /usr/share/urnis/src/urnis.conf | cut -c 10- | sed 's/"//g'`;
@@ -142,7 +144,7 @@ sub updates {
     printf("\n$bleu Updates $normal\n -----------------\n");
     if ($updates == "1") {
         printf("%-45s %s\n", "   - system update", "$green ENABLE $normal");
-        $cmd = `(sudo apt update -y ; sudo apt upgrade -y ; sudo apt-get update -y ; sudo apt-get update -y) 2>&1 /dev/null`;
+        $cmd = `(sudo apt update -y ; sudo apt upgrade -y ; sudo apt-get update -y ; sudo apt-get update -y) > /usr/share/urnis/data/log-maj 2>&1`;
     } else {
         printf("%-45s %s\n", "   - system update", "$red DISABLE $normal");
     }
@@ -410,48 +412,6 @@ sub scan {
 
 
 
-
-########################################################################
-#   BACKUP FUNCTION 
-########################################################################
-
-sub backups {
-    printf("\n$bleu Backup $normal\n -----------------\n");
-
-    if ($backups == "2") {
-        printf("%-45s %s\n", "   - system update", "$green ENABLE $normal");
-
-
-        my $file_path = "/usr/share/urnis/src/backup_list";
-        open(FILE, "<", $file_path) or die "Cannot open file: $!";
-
-        while (my $liness = <FILE>) {
-            chomp $liness;
-            if (-d $liness) {
-                $list_back = "$list_back $liness";
-            }
-            else {
-                printf "%-45s %s\n", "  - Checking $line", "NOT FOUND";
-            }
-        }
-
-        close(FILE);
-
-        $cmd = `$list_back`;
-
-    } else {
-        printf("%-45s %s\n", "   - system update", "$red DISABLE $normal");
-    }
-
-    print($list_back);
-}
-
-
-
-
-
-
-
 ########################################################################
 #   RAPPORT AUDIT 
 ########################################################################
@@ -492,7 +452,6 @@ sub rapport {
 
 sub audit {
     $cmd = `echo "" > /usr/share/urnis/data/log`;
-    backups();
     check();
     updates();
     os_detection();

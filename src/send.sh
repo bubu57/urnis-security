@@ -6,4 +6,4 @@ reciver=$(sudo grep mailreciver /usr/share/urnis/src/urnis.conf | cut -c 13- | s
 
 sudo python3 /usr/share/urnis/src/mailsender.py ${sender} ${passw} ${reciver}
 
-curl -d "audit send by mail" ntfy.sh/urnissec
+curl -d "Audit send\n--------------------" ntfy.sh/urnissec
